@@ -181,6 +181,25 @@ fn invalidate(self: *Self, alloc: Allocator, env: emacs.Env) !bool {
         self.render_pin != null and
         self.render_pin.?.eql(self.rendered_screen.pages.getTopLeft(.screen));
 
+    // The alternate screen keeps no scrollback, so the incremental path's
+    // scrollback-materialisation has nothing to preserve there.  When the
+    // active page has grown past one viewport — `pages.total_rows` exceeds
+    // `term.rows` — `renderToEnd` walks it in several chunks, re-scrolling the
+    // viewport so the bottom rows (prompt + status line) get re-appended below
+    // the active area and the buffer grows.  The scrollback-cleared check above
+    // misses this until the buffer itself has grown, so detect the grown page
+    // directly and reuse the full-rebuild path.
+    //
+    // This cannot misfire in steady state: the alternate screen is created with
+    // `max_scrollback == 0`, so a correctly positioned frame holds exactly
+    // `term.rows` rows — the guard fires only once the page has actually grown
+    // above the active area.
+    if (self.term.screens.active_key == .alternate and
+        self.rendered_screen.pages.total_rows > self.term.rows)
+    {
+        return true;
+    }
+
     return font_info_changed or
         resize_invalidation or
         screen_changed or
