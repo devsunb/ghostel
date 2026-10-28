@@ -4950,14 +4950,21 @@ a Ghostel window making it lose its anchoring."
                      (when (ghostel--window-buffer-pair-live-p entry)
                        (ghostel--anchor-window (car entry))))))))
 
+(defvar ghostel--minibuffer-keeps-point nil
+  "Non-nil while a minibuffer read must not count as leaving the input.
+`ghostel--kill-buffer-query' sets it: declining makes `kill-buffer' put
+point back behind the cursor that output may have moved meanwhile.")
+
 (defun ghostel--minibuffer-exit-maybe-leave ()
   "Run `ghostel-maybe-leave-input' after a minibuffer command, deferred.
 Deferred so the originating window and point settle first (`consult-line's
 marker-based point landing can lag minibuffer teardown).  Only fires in the
 buffer the minibuffer was entered from: switching to a ghostel buffer via
 the minibuffer is an arrival, often with a stale restored point, not point
-leaving the input.  See `ghostel-point-leave-input-mode'."
-  (when-let* ((win (minibuffer-selected-window))
+leaving the input.  Skipped while `ghostel--minibuffer-keeps-point' is set.
+See `ghostel-point-leave-input-mode'."
+  (when-let* (((not ghostel--minibuffer-keeps-point))
+              (win (minibuffer-selected-window))
               (origin (window-buffer win))
               ((provided-mode-derived-p
                 (buffer-local-value 'major-mode origin) 'ghostel-mode)))
@@ -4978,8 +4985,9 @@ leaving the input.  See `ghostel-point-leave-input-mode'."
 (defun ghostel--kill-buffer-query ()
   "Return non-nil when the current ghostel buffer may be killed."
   (or (not (ghostel--query-before-killing-p))
-      (yes-or-no-p (format "Buffer %S has a running process; kill it? "
-                           (buffer-name (current-buffer))))))
+      (let ((ghostel--minibuffer-keeps-point t))
+        (yes-or-no-p (format "Buffer %S has a running process; kill it? "
+                             (buffer-name (current-buffer)))))))
 
 (defun ghostel--kill-emacs-query ()
   "Return non-nil when no ghostel buffer objects to Emacs exiting."

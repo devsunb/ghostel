@@ -1598,6 +1598,36 @@ This is the `consult-line' navigation case the hook exists for."
         (set-window-buffer (selected-window) previous-buffer)
         (kill-buffer origin)))))
 
+(ert-deftest ghostel-test-minibuffer-leave-skips-declined-kill ()
+  "Declining to kill keeps semi-char after output during the query.
+`kill-buffer' puts point back where it was before the query, behind
+the cursor the output moved."
+  (ghostel-test--with-auto-leave-buffer
+    (let ((previous-buffer (window-buffer (selected-window)))
+          (ghostel-point-leave-input-mode 'copy)
+          (ghostel-query-before-killing t)
+          check)
+      (unwind-protect
+          (progn
+            (set-window-buffer (selected-window) buf)
+            (goto-char ghostel--cursor-char-pos)
+            (cl-letf (((symbol-function 'process-live-p) #'always)
+                      ((symbol-function 'yes-or-no-p)
+                       (lambda (_prompt)
+                         (let ((inhibit-read-only t)
+                               (inhibit-modification-hooks t))
+                           (goto-char (point-max))
+                           (insert "out")
+                           (setq-local ghostel--cursor-char-pos (point)))
+                         (setq check
+                               (ghostel-test--minibuffer-exit-leave-deferred))
+                         nil)))
+              (should-not (kill-buffer buf)))
+            (should-not (ghostel--pos-on-cursor-p (point)))
+            (when check (funcall check))
+            (should (eq ghostel--input-mode 'semi-char)))
+        (set-window-buffer (selected-window) previous-buffer)))))
+
 (defmacro ghostel-test--with-anchor-window-buffer (&rest body)
   "Run BODY in the selected window showing a fresh ghostel buffer.
 The buffer holds more rows than fit in the window, so a bottom-aligned

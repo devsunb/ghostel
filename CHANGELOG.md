@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- Declining to kill a ghostel buffer with a running process no longer
+  switches it to copy mode when output arrived while the prompt was
+  open.  `kill-buffer` puts point back where it was before the query,
+  behind the cursor the output moved, and the minibuffer exit check
+  took that for point leaving the input.
 - evil-ghostel landed the shell cursor one cell off per oversized prompt
   icon when `i`, `a`, `0`, `$` and friends drove it to point.
 - The native module installer now selects the `x86_64-freebsd` release on FreeBSD.
